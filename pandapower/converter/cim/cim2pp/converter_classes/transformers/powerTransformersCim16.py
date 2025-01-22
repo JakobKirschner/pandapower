@@ -363,10 +363,10 @@ class PowerTransformersCim16:
                 ptct.loc[keep_index, 'tap_changer_type'] = "Ratio" # longitudinal regulator
                 if max_step > neutral_step:
                     index = one_df["step"] == (neutral_step + 1)
-                    stepVoltageIncrement = one_df["ratio"][index].values[0] - 1.
+                    stepVoltageIncrement = 100 * (one_df["ratio"][index].values[0] - 1.)
                 else:
                     index = one_df["step"] == (neutral_step - 1)
-                    stepVoltageIncrement = 1. - one_df["angle"][index].values[0]
+                    stepVoltageIncrement = 100 * (1. - one_df["angle"][index].values[0])
                 ptct.loc[keep_index, 'angle'] = 0
                 ptct.loc[keep_index, 'ratio'] = stepVoltageIncrement #ratio is later read as stepVoltageIncrement
             elif(np.all(one_df["ratio"] == 1)):

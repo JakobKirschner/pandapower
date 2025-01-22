@@ -2510,6 +2510,11 @@ def create_trafo(net, item, export_controller=True, tap_opt="nntap", is_unbalanc
             else:
                 tap_changer_type = "None"
 
+            if(np.all(new_tap_table["voltage_ratio"]==1.)):
+                tap_changer_type = "Ideal"
+            elif(np.all(new_tap_table["angle_deg"]==0.)):
+                tap_changer_type = "Longitudinal" # temporary, to facilitate calculation from table, has to be set to Ratio later
+
             tap_dependency_table = True
             id_characteristic_table = new_id_characteristic_table
 
@@ -2714,26 +2719,29 @@ def set_tap_step_and_degree_from_table(net_trafo_std_type, new_tap_table, tap_ch
             angle = -new_tap_table["angle_deg"][index].values[0]
         net_trafo_std_type["tap_step_degree"] = angle
         net_trafo_std_type["tap_step_percent"] = 0
-    # TODO! Check if my definition of theta is correct (could be as well 180 - theta!)
-    if tap_changer_type == "Ratio":
-        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral \
-                                                else new_tap_table["step"] == (tap_neutral - 1)
-        alpha = new_tap_table["angle_deg"][index].values[0]
-        ratio = new_tap_table["voltage_ratio"][index].values[0]
-        tap_step_percent_from_table = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
-        net_trafo_std_type["tap_step_percent"] = tap_step_percent_from_table
-        theta_from_table = np.rad2deg(np.arctan2( ratio * np.sin(np.deg2rad(alpha)) , (ratio * np.cos(np.deg2rad(alpha)) - 1) ))
-        net_trafo_std_type["tap_step_degree"] = theta_from_table
-    if tap_changer_type == "Symmetrical":
-        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral \
-                                        else new_tap_table["step"] == (tap_neutral - 1)
-        ratio = new_tap_table["voltage_ratio"][index].values[0]
-        alpha = new_tap_table["angle_deg"][index].values[0]
-        tap_step_percent_positive = 1 if (tap_max > tap_neutral and alpha > 0) or (
-                tap_max <= tap_neutral and alpha < 0) else -1
-        tap_step_percent_from_table = np.sqrt(ratio ** 2 - 1)
-        net_trafo_std_type["tap_step_percent"] = 100 * tap_step_percent_positive * tap_step_percent_from_table
-        net_trafo_std_type["tap_step_degree"] = 90  # TODO: Check if this might be negative
+    # TODO! Dominik Please help check if my definition of theta is correct (imo it agrees with UCT pictures panso sent. and Thomas, remove comment after review.)
+    elif tap_changer_type == "Longitudinal":
+        if tap_max > tap_neutral:
+            index = new_tap_table["step"] == (tap_neutral + 1)
+            stepVoltageIncrement = 100*(new_tap_table["ratio"][index].values[0] - 1.)
+        else:
+            index = new_tap_table["step"] == (tap_neutral - 1)
+            stepVoltageIncrement = 100*(1. - new_tap_table["angle"][index].values[0])
+        net_trafo_std_type["tap_step_percent"] = stepVoltageIncrement
+        net_trafo_std_type["tap_step_degree"] = 0
+    else: # tap_changer_type == "Ratio" and a default not to crash
+        if tap_max > tap_neutral:
+            index = new_tap_table["step"] == (tap_neutral + 1)
+            alpha = new_tap_table["angle"][index].values[0]
+            ratio = new_tap_table["ratio"][index].values[0]
+            net_trafo_std_type["tap_step_percent"] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+            net_trafo_std_type["tap_step_degree"] = np.rad2deg( np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (ratio * np.cos(np.deg2rad(alpha)) - 1)))
+        else:
+            index = new_tap_table["step"] == (tap_neutral + 1)
+            alpha = new_tap_table["angle_deg"][index].values[0]
+            ratio = new_tap_table["ratio"][index].values[0]
+            net_trafo_std_type["tap_step_percent"] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+            net_trafo_std_type["tap_step_degree"] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (1 - ratio * np.cos(np.deg2rad(alpha)))))
 
 def get_pf_trafo_results(net, item, tid, is_unbalanced):
     trafo_type = None
