@@ -357,19 +357,49 @@ class PowerTransformersCim16:
                                     "in the PhaseTapChangerTablePoints!" % one_id)
                 ptct = ptct.drop(drop_index)
                 continue
-            one_df = one_df.set_index('step')
-            current_step = one_df['current_step'].iloc[0]
             neutral_step = one_df['neutralStep'].iloc[0]
+            max_step =  one_df['highStep'].iloc[0]
+            if(np.all(one_df["angle"] == 0)):
+                ptct.loc[keep_index, 'tap_changer_type'] = "Ratio" # longitudinal regulator
+                if max_step > neutral_step:
+                    index = one_df["step"] == (neutral_step + 1)
+                    stepVoltageIncrement = one_df["ratio"][index].values[0] - 1.
+                else:
+                    index = one_df["step"] == (neutral_step - 1)
+                    stepVoltageIncrement = 1. - one_df["angle"][index].values[0]
+                ptct.loc[keep_index, 'angle'] = 0
+                ptct.loc[keep_index, 'ratio'] = stepVoltageIncrement #ratio is later read as stepVoltageIncrement
+            elif(np.all(one_df["ratio"] == 1)):
+                ptct.loc[keep_index, 'tap_changer_type'] = "Ideal"
+                if max_step > neutral_step:
+                    index = one_df["step"] == (neutral_step + 1)
+                    angle = one_df["angle"][index].values[0]
+                else:
+                    index = one_df["step"] == (neutral_step - 1)
+                    angle = -one_df["angle"][index].values[0]
+                ptct.loc[keep_index, 'angle'] = angle
+                ptct.loc[keep_index, 'ratio'] = 1.
+            else:
+                ptct.loc[keep_index, 'tap_changer_type'] = "Ratio"
+                if max_step > neutral_step:
+                    index = one_df["step"] == (neutral_step + 1)
+                    alpha = one_df["angle"][index].values[0]
+                    ratio = one_df["ratio"][index].values[0]
+                    ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                    ptct.loc[keep_index, 'angle'] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (ratio * np.cos(np.deg2rad(alpha)) - 1)))
+                else:
+                    index = one_df["step"] == (neutral_step - 1)
+                    alpha = one_df["angle_deg"][index].values[0]
+                    ratio = one_df["ratio"][index].values[0]
+                    ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                    ptct.loc[keep_index, 'angle'] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (1 - ratio * np.cos(np.deg2rad(alpha)))))
+
             ptct = ptct.drop(drop_index)
-            # calculate the angle and ratio per tap based on the current tap position
-            ptct.loc[keep_index, 'angle'] = one_df.loc[current_step, 'angle'] / max(1, abs(current_step - neutral_step))
-            ptct.loc[keep_index, 'ratio'] = \
-                (one_df.loc[current_step, 'ratio'] - 1) * 100 / max(1, abs(current_step - neutral_step))
+
         ptct = ptct.drop(columns=['rdfId', 'PhaseTapChangerTable', 'step'])
         ptct = ptct.rename(columns={'current_step': 'step'})
         ptct['stepPhaseShiftIncrement'] = ptct['angle'][:]
         ptct['stepVoltageIncrement'] = ptct['ratio'][:]
-        ptct['tap_changer_type'] = "Ratio"  # Ratio/Asymmetrical phase shifter
         eqssh_tap_changers = pd.concat([eqssh_tap_changers, ptct], ignore_index=True, sort=False)
         del eqssh_tap_changers_linear, eqssh_tap_changers_async, eqssh_ratio_tap_changers_sync
 

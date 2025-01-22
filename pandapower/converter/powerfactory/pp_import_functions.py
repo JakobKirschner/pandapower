@@ -2512,12 +2512,13 @@ def create_trafo(net, item, export_controller=True, tap_opt="nntap", is_unbalanc
 
             tap_dependency_table = True
             id_characteristic_table = new_id_characteristic_table
+
+            set_tap_step_and_degree_from_table(net["std_types"]["trafo"][std_type], new_tap_table, tap_changer_type)
         else:
             id_characteristic_table = None
             tap_dependency_table = False
             tap_changer_type = None
 
-        set_tap_step_and_degree_from_table(net, new_tap_table, std_type, tap_changer_type)
         # tap_changer_type = tap_changer_type
 
         tid = pp.create_transformer(net, hv_bus=bus1, lv_bus=bus2, name=name,
@@ -2700,10 +2701,10 @@ def create_trafo(net, item, export_controller=True, tap_opt="nntap", is_unbalanc
     #    pp.control.create_trafo_characteristics(net, trafotable="trafo", trafo_index=tid, variable="vkr_percent",
     #                                            x_points=x_points, y_points=(vkr_min, vkr_neutral, vkr_max))
 
-def set_tap_step_and_degree_from_table(net, new_tap_table, std_type, tap_changer_type):
-    tap_neutral = net["std_types"]["trafo"][std_type]["tap_neutral"]
-    tap_max = net["std_types"]["trafo"][std_type]["tap_max"]
-    tap_min = net["std_types"]["trafo"][std_type]["tap_min"]
+def set_tap_step_and_degree_from_table(net_trafo_std_type, new_tap_table, tap_changer_type):
+    tap_neutral = net_trafo_std_type["tap_neutral"]
+    tap_max = net_trafo_std_type["tap_max"]
+    tap_min = net_trafo_std_type["tap_min"]
     if tap_changer_type == "Ideal":
         if tap_max > tap_neutral:
             index = new_tap_table["step"] == (tap_neutral + 1)
@@ -2711,35 +2712,28 @@ def set_tap_step_and_degree_from_table(net, new_tap_table, std_type, tap_changer
         else:
             index = new_tap_table["step"] == (tap_neutral - 1)
             angle = -new_tap_table["angle_deg"][index].values[0]
-        net["std_types"]["trafo"][std_type]["tap_step_degree"] = angle
-        net["std_types"]["trafo"][std_type]["tap_step_percent"] = 0
+        net_trafo_std_type["tap_step_degree"] = angle
+        net_trafo_std_type["tap_step_percent"] = 0
     # TODO! Check if my definition of theta is correct (could be as well 180 - theta!)
     if tap_changer_type == "Ratio":
-        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral else new_tap_table[
-                                                                                             "step"] == (
-                                                                                                 tap_neutral - 1)
+        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral \
+                                                else new_tap_table["step"] == (tap_neutral - 1)
         alpha = new_tap_table["angle_deg"][index].values[0]
         ratio = new_tap_table["voltage_ratio"][index].values[0]
-        tap_step_percent_positive = 1 if (tap_max > tap_neutral and ratio > 1) or (
-                tap_max <= tap_neutral and ratio < 1) else -1
-        tap_step_percent_from_table = 100 * tap_step_percent_positive * np.sqrt(
-            ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
-        net["std_types"]["trafo"][std_type]["tap_step_percent"] = tap_step_percent_from_table
-        theta_from_table = np.rad2deg(
-            np.atan(ratio * np.sin(np.deg2rad(alpha)) / (ratio * np.cos(np.deg2rad(alpha)) - 1)))
-        net["std_types"]["trafo"][std_type]["tap_step_degree"] = theta_from_table
+        tap_step_percent_from_table = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+        net_trafo_std_type["tap_step_percent"] = tap_step_percent_from_table
+        theta_from_table = np.rad2deg(np.arctan2( ratio * np.sin(np.deg2rad(alpha)) , (ratio * np.cos(np.deg2rad(alpha)) - 1) ))
+        net_trafo_std_type["tap_step_degree"] = theta_from_table
     if tap_changer_type == "Symmetrical":
-        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral else new_tap_table[
-                                                                                             "step"] == (
-                                                                                                 tap_neutral - 1)
+        index = new_tap_table["step"] == (tap_neutral + 1) if tap_max > tap_neutral \
+                                        else new_tap_table["step"] == (tap_neutral - 1)
         ratio = new_tap_table["voltage_ratio"][index].values[0]
         alpha = new_tap_table["angle_deg"][index].values[0]
         tap_step_percent_positive = 1 if (tap_max > tap_neutral and alpha > 0) or (
                 tap_max <= tap_neutral and alpha < 0) else -1
         tap_step_percent_from_table = np.sqrt(ratio ** 2 - 1)
-        net["std_types"]["trafo"][std_type][
-            "tap_step_percent"] = 100 * tap_step_percent_positive * tap_step_percent_from_table
-        net["std_types"]["trafo"][std_type]["tap_step_degree"] = 90  # TODO: Check if this might be negative
+        net_trafo_std_type["tap_step_percent"] = 100 * tap_step_percent_positive * tap_step_percent_from_table
+        net_trafo_std_type["tap_step_degree"] = 90  # TODO: Check if this might be negative
 
 def get_pf_trafo_results(net, item, tid, is_unbalanced):
     trafo_type = None
