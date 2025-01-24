@@ -314,7 +314,7 @@ class PowerTransformersCim16:
         eqssh_tap_changers_linear = pd.merge(self.cimConverter.cim['eq']['PhaseTapChangerLinear'],
                                              self.cimConverter.cim['ssh']['PhaseTapChangerLinear'], how='left',
                                              on='rdfId')
-        eqssh_tap_changers_linear['stepVoltageIncrement'] = .001
+        eqssh_tap_changers_linear['stepVoltageIncrement'] = .001 #TODO explain why/what .001 is ( a default?!)
         eqssh_tap_changers_linear[sc['tc']] = 'PhaseTapChangerLinear'
         eqssh_tap_changers_linear['tap_changer_type'] = "Ideal"  # Ideal phase shifter
         eqssh_tap_changers_linear[sc['tc_id']] = eqssh_tap_changers_linear['rdfId'].copy()
@@ -439,8 +439,6 @@ class PowerTransformersCim16:
         power_transformers = pd.merge(power_transformers, eqssh_tap_changers, how='left', on=sc['pte_id'])
         return power_transformers
 
-    # TODO. ptct.loc[keep_index, 'angle'] = 0 seems wrong. because keep_index is just one number but this ptct (what is that?) has multiple values for one number..
-    #  I have it like this because it was like this before.
     def set_tap_step_and_degree_from_table_cim(self, keep_index, one_df, ptct):
         neutral_step = one_df['neutralStep'].iloc[0]
         max_step = one_df['highStep'].iloc[0]
@@ -463,7 +461,7 @@ class PowerTransformersCim16:
                 index = one_df["step"] == (neutral_step - 1)
                 angle = -one_df["angle"][index].values[0]
             ptct.loc[keep_index, 'angle'] = angle
-            ptct.loc[keep_index, 'ratio'] = 1.
+            ptct.loc[keep_index, 'ratio'] = 0.  # ratio is later read as stepVoltageIncrement
         else:
             ptct.loc[keep_index, 'tap_changer_type'] = "Ratio"
             if max_step > neutral_step:

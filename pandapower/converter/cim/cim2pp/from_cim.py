@@ -58,6 +58,24 @@ def from_cim_dict(cim_parser: cim_classes.CimParser, log_debug=False, convert_li
         repair_pp = repair_pp_class().deserialize(repair_pp, report_container=cim_parser.get_report_container())
         repair_pp.repair(pp_net, report_container=cim_parser.get_report_container())
 
+    #TEMP move to utils:
+    print(pp_net.trafo)
+    for index, row in pp_net.trafo3w.iterrows():
+        if(row.tap_dependency_table):
+            tap_max = row["tap_max"]
+            tap_neutral = row["tap_neutral"]
+            id_characteristic_table = row["id_characteristic_table"]
+        tap_max = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["tap_max"]
+        tap_neutral = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["tap_neutral"]
+        id_characteristic_table = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["id_characteristic_table"]
+        for i in id_characteristic_table:
+            trafo_table = pp_net.trafo_characteristic_table[pp_net.trafo_characteristic_table['id_characteristic'] == id_characteristic_table]
+            if(trafo_table["voltage_ratio"] == 1):
+
+
+
+            pp_net.trafo_characteristic_table["angle_deg"] == 0
+
     return pp_net
 
 
