@@ -74,7 +74,7 @@ class PowerTransformersCim16:
         ptct = pd.concat([ptct, ptct_ratio], ignore_index=True, sort=False)
         ptct = ptct.rename(columns={'step': 'tabular_step', 'r': 'r_dev', 'x': 'x_dev', 'TransformerEnd': sc['pte_id'],
                                     'ratio': 'ratio_dev', 'angle': 'angle_dev'})
-        ptct = ptct.drop(columns=['PhaseTapChangerTable'])
+        # ptct = ptct.drop(columns=['PhaseTapChangerTable'])
         if trafo_type == 'trafo':
             trafo_df = trafo_df_origin.sort_values(['PowerTransformer', 'endNumber']).reset_index()
             # processing the transformer data
@@ -154,7 +154,6 @@ class PowerTransformersCim16:
                 trafo_df[one_item + '_lv'] = trafo_df[one_item + '_lv'].iloc[2:].reset_index()[
                     one_item + '_lv']
             del copy_list, one_item
-            #trafo_df.loc[trafo_df.tap_changer_type.isna(), 'PowerTransformerEnd_id'] = float('NaN')
             fillna_list = ['neutralStep', 'lowStep', 'highStep', 'step']
             for one_item in fillna_list:
                 trafo_df[one_item] = trafo_df[one_item].fillna(trafo_df[one_item + '_mv'])
@@ -178,10 +177,9 @@ class PowerTransformersCim16:
                                            how='left', on=sc['pte_id'] + '_lv')
                                   ], ignore_index=True, sort=False)
             # remove elements with more than one tap changer per trafo
-            # Todo: for multiple tap changers the deletion of tap entries must be changed.
-            #trafo_df = trafo_df.loc[(~trafo_df.duplicated(subset=['PowerTransformer', 'tabular_step'], keep=False)) | (
-            #    ~trafo_df.RatioTapChangerTable.isna())]
-            trafo_df = trafo_df.loc[~trafo_df.RatioTapChangerTable.isna()]
+            # todo: for multiple tap changers the deletion of tap entries must be changed
+            trafo_df = trafo_df.loc[(~trafo_df.duplicated(subset=['PowerTransformer', 'tabular_step'], keep=False)) | (
+               ~trafo_df.RatioTapChangerTable.isna()) | (~trafo_df.PhaseTapChangerTable.isna())]
             fillna_list = ['tabular_step']
             for one_item in fillna_list:
                 trafo_df[one_item] = trafo_df[one_item].fillna(trafo_df[one_item + '_mv'])
@@ -312,6 +310,7 @@ class PowerTransformersCim16:
         eqssh_tap_changers[sc['tc']] = 'RatioTapChanger'
         eqssh_tap_changers['tap_changer_type'] = "Ratio"  # Ratio/Asymmetrical phase shifter
         eqssh_tap_changers[sc['tc_id']] = eqssh_tap_changers['rdfId'].copy()
+        # todo: check correct implementation for PhaseTapChangerLinear tap changers
         eqssh_tap_changers_linear = pd.merge(self.cimConverter.cim['eq']['PhaseTapChangerLinear'],
                                              self.cimConverter.cim['ssh']['PhaseTapChangerLinear'], how='left',
                                              on='rdfId')
@@ -320,6 +319,7 @@ class PowerTransformersCim16:
         eqssh_tap_changers_linear['tap_changer_type'] = "Ideal"  # Ideal phase shifter
         eqssh_tap_changers_linear[sc['tc_id']] = eqssh_tap_changers_linear['rdfId'].copy()
         eqssh_tap_changers = pd.concat([eqssh_tap_changers, eqssh_tap_changers_linear], ignore_index=True, sort=False)
+        # todo: check correct implementation for PhaseTapChangerAsymmetrical tap changers
         eqssh_tap_changers_async = pd.merge(self.cimConverter.cim['eq']['PhaseTapChangerAsymmetrical'],
                                             self.cimConverter.cim['ssh']['PhaseTapChangerAsymmetrical'], how='left',
                                             on='rdfId')
@@ -329,6 +329,7 @@ class PowerTransformersCim16:
         eqssh_tap_changers_async['tap_changer_type'] = "Ratio"  # Ratio/Asymmetrical phase shifter
         eqssh_tap_changers_async[sc['tc_id']] = eqssh_tap_changers_async['rdfId'].copy()
         eqssh_tap_changers = pd.concat([eqssh_tap_changers, eqssh_tap_changers_async], ignore_index=True, sort=False)
+        # todo: check correct implementation for PhaseTapChangerSymmetrical tap changers
         eqssh_ratio_tap_changers_sync = pd.merge(self.cimConverter.cim['eq']['PhaseTapChangerSymmetrical'],
                                                  self.cimConverter.cim['ssh']['PhaseTapChangerSymmetrical'], how='left',
                                                  on='rdfId')
@@ -470,7 +471,6 @@ class PowerTransformersCim16:
                                          how='left', left_on='Terminal', right_on='rdfId_Terminal')
         # add the TapChangers
         power_transformers = pd.merge(power_transformers, eqssh_tap_changers, how='left', on=sc['pte_id'])
-        power_transformers['tap_changer_type'] = power_transformers['tap_changer_type']
         return power_transformers
 
     def _prepare_trafos_cim16(self, power_trafo2w: pd.DataFrame) -> pd.DataFrame:
