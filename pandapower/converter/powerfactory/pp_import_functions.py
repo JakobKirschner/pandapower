@@ -2518,7 +2518,7 @@ def create_trafo(net, item, export_controller=True, tap_opt="nntap", is_unbalanc
             tap_dependency_table = True
             id_characteristic_table = new_id_characteristic_table
 
-            set_tap_step_and_degree_from_table(net["std_types"]["trafo"][std_type], new_tap_table, tap_changer_type)
+            set_tap_step_and_degree_from_table_pf(net["std_types"]["trafo"][std_type], new_tap_table, tap_changer_type)
         else:
             id_characteristic_table = None
             tap_dependency_table = False
@@ -2706,7 +2706,7 @@ def create_trafo(net, item, export_controller=True, tap_opt="nntap", is_unbalanc
     #    pp.control.create_trafo_characteristics(net, trafotable="trafo", trafo_index=tid, variable="vkr_percent",
     #                                            x_points=x_points, y_points=(vkr_min, vkr_neutral, vkr_max))
 
-def set_tap_step_and_degree_from_table(net_trafo_std_type, new_tap_table, tap_changer_type):
+def set_tap_step_and_degree_from_table_pf(net_trafo_std_type, new_tap_table, tap_changer_type):
     tap_neutral = net_trafo_std_type["tap_neutral"]
     tap_max = net_trafo_std_type["tap_max"]
     tap_min = net_trafo_std_type["tap_min"]

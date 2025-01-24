@@ -340,7 +340,7 @@ class PowerTransformersCim16:
         eqssh_ratio_tap_changers_sync[sc['tc_id']] = eqssh_ratio_tap_changers_sync['rdfId'].copy()
         eqssh_tap_changers = \
             pd.concat([eqssh_tap_changers, eqssh_ratio_tap_changers_sync], ignore_index=True, sort=False)
-        # convert the PhaseTapChangerTabular to one tap changer
+        # convert the PhaseTapChangerTabular to one tap changer # TODO better name for ptct, @someone who understands what ptct is
         ptct = pd.merge(
             self.cimConverter.cim['eq']['PhaseTapChangerTabular'][['rdfId', 'TransformerEnd', 'PhaseTapChangerTable',
                                                                    'highStep', 'lowStep', 'neutralStep']],
@@ -358,42 +358,8 @@ class PowerTransformersCim16:
                                     "in the PhaseTapChangerTablePoints!" % one_id)
                 ptct = ptct.drop(drop_index)
                 continue
-            neutral_step = one_df['neutralStep'].iloc[0]
-            max_step =  one_df['highStep'].iloc[0]
-            if(np.all(one_df["angle"] == 0)):
-                ptct.loc[keep_index, 'tap_changer_type'] = "Ratio" # longitudinal regulator
-                if max_step > neutral_step:
-                    index = one_df["step"] == (neutral_step + 1)
-                    stepVoltageIncrement = 100 * (one_df["ratio"][index].values[0] - 1.)
-                else:
-                    index = one_df["step"] == (neutral_step - 1)
-                    stepVoltageIncrement = 100 * (1. - one_df["angle"][index].values[0])
-                ptct.loc[keep_index, 'angle'] = 0
-                ptct.loc[keep_index, 'ratio'] = stepVoltageIncrement #ratio is later read as stepVoltageIncrement
-            elif(np.all(one_df["ratio"] == 1)):
-                ptct.loc[keep_index, 'tap_changer_type'] = "Ideal"
-                if max_step > neutral_step:
-                    index = one_df["step"] == (neutral_step + 1)
-                    angle = one_df["angle"][index].values[0]
-                else:
-                    index = one_df["step"] == (neutral_step - 1)
-                    angle = -one_df["angle"][index].values[0]
-                ptct.loc[keep_index, 'angle'] = angle
-                ptct.loc[keep_index, 'ratio'] = 1.
-            else:
-                ptct.loc[keep_index, 'tap_changer_type'] = "Ratio"
-                if max_step > neutral_step:
-                    index = one_df["step"] == (neutral_step + 1)
-                    alpha = one_df["angle"][index].values[0]
-                    ratio = one_df["ratio"][index].values[0]
-                    ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
-                    ptct.loc[keep_index, 'angle'] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (ratio * np.cos(np.deg2rad(alpha)) - 1)))
-                else:
-                    index = one_df["step"] == (neutral_step - 1)
-                    alpha = one_df["angle_deg"][index].values[0]
-                    ratio = one_df["ratio"][index].values[0]
-                    ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
-                    ptct.loc[keep_index, 'angle'] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (1 - ratio * np.cos(np.deg2rad(alpha)))))
+
+            self.set_tap_step_and_degree_from_table_cim(keep_index, one_df, ptct)
 
             ptct = ptct.drop(drop_index)
 
@@ -472,6 +438,48 @@ class PowerTransformersCim16:
         # add the TapChangers
         power_transformers = pd.merge(power_transformers, eqssh_tap_changers, how='left', on=sc['pte_id'])
         return power_transformers
+
+    # TODO. ptct.loc[keep_index, 'angle'] = 0 seems wrong. because keep_index is just one number but this ptct (what is that?) has multiple values for one number..
+    #  I have it like this because it was like this before.
+    def set_tap_step_and_degree_from_table_cim(self, keep_index, one_df, ptct):
+        neutral_step = one_df['neutralStep'].iloc[0]
+        max_step = one_df['highStep'].iloc[0]
+        if (np.all(one_df["angle"] == 0)):
+            ptct.loc[keep_index, 'tap_changer_type'] = "Ratio"  # longitudinal regulator
+            if max_step > neutral_step:
+                index = one_df["step"] == (neutral_step + 1)
+                stepVoltageIncrement = 100 * (one_df["ratio"][index].values[0] - 1.)
+            else:
+                index = one_df["step"] == (neutral_step - 1)
+                stepVoltageIncrement = 100 * (1. - one_df["angle"][index].values[0])
+            ptct.loc[keep_index, 'angle'] = 0
+            ptct.loc[keep_index, 'ratio'] = stepVoltageIncrement  # ratio is later read as stepVoltageIncrement
+        elif (np.all(one_df["ratio"] == 1)):
+            ptct.loc[keep_index, 'tap_changer_type'] = "Ideal"
+            if max_step > neutral_step:
+                index = one_df["step"] == (neutral_step + 1)
+                angle = one_df["angle"][index].values[0]
+            else:
+                index = one_df["step"] == (neutral_step - 1)
+                angle = -one_df["angle"][index].values[0]
+            ptct.loc[keep_index, 'angle'] = angle
+            ptct.loc[keep_index, 'ratio'] = 1.
+        else:
+            ptct.loc[keep_index, 'tap_changer_type'] = "Ratio"
+            if max_step > neutral_step:
+                index = one_df["step"] == (neutral_step + 1)
+                alpha = one_df["angle"][index].values[0]
+                ratio = one_df["ratio"][index].values[0]
+                ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                ptct.loc[keep_index, 'angle'] = np.rad2deg(
+                    np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (ratio * np.cos(np.deg2rad(alpha)) - 1)))
+            else:
+                index = one_df["step"] == (neutral_step - 1)
+                alpha = one_df["angle_deg"][index].values[0]
+                ratio = one_df["ratio"][index].values[0]
+                ptct.loc[keep_index, 'ratio'] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                ptct.loc[keep_index, 'angle'] = np.rad2deg(
+                    np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (1 - ratio * np.cos(np.deg2rad(alpha)))))
 
     def _prepare_trafos_cim16(self, power_trafo2w: pd.DataFrame) -> pd.DataFrame:
         power_trafo2w = power_trafo2w.sort_values(['PowerTransformer', 'endNumber']).reset_index()
