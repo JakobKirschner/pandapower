@@ -10,6 +10,7 @@ from . import build_pp_net
 from .. import cim_classes
 from .. import interfaces
 from . import converter_classes as std_converter_classes
+from ...utils import set_tap_percent_and_degree_from_table
 
 logger = logging.getLogger('cim.cim2pp.from_cim')
 
@@ -21,6 +22,7 @@ def from_cim_dict(cim_parser: cim_classes.CimParser, log_debug=False, convert_li
                   repair_pp: Union[str, interfaces.PandapowerRepair] = None,
                   repair_pp_class: Type[interfaces.PandapowerRepair] = None,
                   custom_converter_classes: Dict = None,
+                  tap_percent_and_degree_from_table = False,
                   **kwargs) -> pandapower.auxiliary.pandapowerNet:
     """
     Create a pandapower net from a CIM data structure.
@@ -57,6 +59,10 @@ def from_cim_dict(cim_parser: cim_classes.CimParser, log_debug=False, convert_li
     if repair_pp is not None and repair_pp_class is not None:
         repair_pp = repair_pp_class().deserialize(repair_pp, report_container=cim_parser.get_report_container())
         repair_pp.repair(pp_net, report_container=cim_parser.get_report_container())
+
+    if(tap_percent_and_degree_from_table):
+        set_tap_percent_and_degree_from_table(pp_net.trafo, pp_net.trafo_characteristic_table)
+        set_tap_percent_and_degree_from_table(pp_net.trafo3w,pp_net.trafo_characteristic_table)
 
     return pp_net
 
