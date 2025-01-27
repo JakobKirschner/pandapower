@@ -28,7 +28,7 @@ from pandapower.test.helper_functions import add_grid_connection, create_test_li
 from pandapower.toolbox import nets_equal
 from pandapower.pypower.makeYbus import makeYbus as makeYbus_pypower
 from pandapower.pypower.idx_brch import BR_R, BR_X, BR_B, BR_G
-
+from pandapower.control.util.auxiliary import create_q_capability_curve_characteristics_object
 
 try:
     from pandapower.pf.makeYbus_numba import makeYbus as makeYbus_numba
@@ -1548,6 +1548,57 @@ def test_shunt_with_missing_vn_kv():
     net.shunt.vn_kv=np.nan
 
     pp.runpp(net)
+
+def test_net_for_q_capability_curve():
+    net = pp.create_empty_network()
+    bus1 = pp.create_bus(net, name="bus1", vn_kv=20., type="b", min_vm_pu=0., max_vm_pu=1.05)
+    bus2 = pp.create_bus(net, name="bus2", vn_kv=110., type="b", min_vm_pu=0., max_vm_pu=1.05)
+    bus3 = pp.create_bus(net, name="bus3", vn_kv=110., type="b", min_vm_pu=0., max_vm_pu=1.05)
+
+    pp.create_ext_grid(net, bus3, name="External Grid", vm_pu=1.0, va_degree=0.0,max_p_mw=100000, min_p_mw=0, min_q_mvar=-300, max_q_mvar=300,
+                       s_sc_max_mva=10000, s_sc_min_mva=8000, rx_max=0.1, rx_min=0.1)
+    # create lines
+    pp.create_line_from_parameters(net, bus2, bus3, length_km=10,df=1,max_loading_percent=100,vn_kv=110,max_i_ka=0.74,type="ol",
+                   r_ohm_per_km=0.0949, x_ohm_per_km =0.38, c_nf_per_km=0.0092, name="Line")
+    # create load
+    pp.create_load(net, bus3, p_mw=198, q_mvar=500, name="Load", vm_pu=1.0 )
+
+    # create transformer
+    pp.create_transformer_from_parameters(net, bus2, bus1, name="110kV/20kV transformer", parallel=1,max_loading_percent=100,sn_mva=210,
+    vn_hv_kv=110, vn_lv_kv=20, vk_percent=12.5, vkr_percent=0.01904762, vk0_percent=10, vkr0_percent=0,
+                          shift_degree=330, vector_group="YNd11", i0_percent= 0.26, pfe_kw=0,si0_hv_partial=0.5)
+
+
+    pp.create_gen(net, bus1, p_mw=100, sn_mva=255.0, scaling=1.0, type="Hydro",
+                 cos_phi=0.8, pg_percent=0.0, vn_kv=19.0, vm_pu=1.0) #,min_q_mvar=-255, max_q_mvar=255,  min_p_mw=-331.01001, max_p_mw=331.01001)
+    return net
+
+def test_q_capability_curve():
+    net = test_net_for_q_capability_curve()
+    pp.runpp(net)
+
+    net.gen.loc[0,"max_q_mvar"] = 50.0
+    net.gen.loc[0, "min_q_mvar"] =  -3
+    pp.runpp(net, enforce_q_lims=True)
+    assert net.res_gen.q_mvar.loc[0] == -3
+    assert net.res_gen.p_mw.loc[0] == 100
+
+    #create q characteristics table
+    net["q_capability_curve_table"] = pd.DataFrame(
+        {'id_q_capability_curve': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         'p_mw':      [-331.01001, -298.0,    -198.0,     -66.2000,   -0.1,        0,           0.1,        66.200, 100,     198.00,     298.00,     331.01001],
+         'q_min_mvar':[-0.0100,    -134.0099, -265.01001, -323.01001, -323.01001,  -323.01001, -323.01001, -323.01001, 0, -265.01001, -134.00999, -0.01000 ],
+         'q_max_mvar':[0.01000,    134.00999,  228.00999,  257.01001,  261.01001,  261.01001,   261.01001,  257.01001, 30,  40,  134.0099,   0.01]})
+
+    net.gen.id_q_capability_curve_table.at[0] = 0
+    net.gen['curve_style'] = "straightLineYValues"
+
+    # Add q_capability_curve_characteristic for one gen based on q_capability_curve_table
+    create_q_capability_curve_characteristics_object(net)
+    pp.runpp(net, enforce_q_lims=True)
+    assert net.res_gen.q_mvar.loc[0] == 0
+    assert net.res_gen.p_mw.loc[0] == 100
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-xs"])
