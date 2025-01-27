@@ -59,22 +59,46 @@ def from_cim_dict(cim_parser: cim_classes.CimParser, log_debug=False, convert_li
         repair_pp.repair(pp_net, report_container=cim_parser.get_report_container())
 
     #TEMP move to utils:
+    import numpy as np
     print(pp_net.trafo)
     for index, row in pp_net.trafo3w.iterrows():
         if(row.tap_dependency_table):
             tap_max = row["tap_max"]
             tap_neutral = row["tap_neutral"]
             id_characteristic_table = row["id_characteristic_table"]
-        tap_max = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["tap_max"]
-        tap_neutral = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["tap_neutral"]
-        id_characteristic_table = pp_net.trafo3w[pp_net.trafo3w.tap_dependency_table]["id_characteristic_table"]
-        for i in id_characteristic_table:
             trafo_table = pp_net.trafo_characteristic_table[pp_net.trafo_characteristic_table['id_characteristic'] == id_characteristic_table]
-            if(trafo_table["voltage_ratio"] == 1):
-
-
-
-            pp_net.trafo_characteristic_table["angle_deg"] == 0
+            if(np.allclose(trafo_table["voltage_ratio"] ,1,1e-6)):
+                row["tap_step_percent"] = 0
+                if tap_max > tap_neutral:
+                    index = trafo_table["step"] == (tap_neutral + 1)
+                    tap_step_degree = trafo_table["angle_deg"][index].values[0]
+                else:
+                    index = trafo_table["step"] == (tap_neutral - 1)
+                    tap_step_degree = -trafo_table["angle_deg"][index].values[0]
+                row["tap_step_degree"] = tap_step_degree
+            elif(np.all(trafo_table["angle_deg"] == 0)):
+                row["tap_step_degree"] = 0
+                if tap_max > tap_neutral:
+                    index = trafo_table["step"] == (tap_neutral + 1)
+                    tap_step_percent = 100 * (trafo_table["voltage_ratio"][index].values[0] - 1.)
+                else:
+                    index = trafo_table["step"] == (tap_neutral - 1)
+                    tap_step_percent = 100 * (1. - trafo_table["voltage_ratio"][index].values[0])
+                if(not np.isclose(tap_step_percent,row["tap_step_percent"],1e-6)):
+                    row["tap_step_percent"] = tap_step_percent
+            else:
+                if tap_max > tap_neutral:
+                    index = trafo_table["step"] == (tap_neutral + 1)
+                    alpha = trafo_table["angle_deg"][index].values[0]
+                    ratio = trafo_table["voltage_ratio"][index].values[0]
+                    row["tap_step_percent"] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                    row["tap_step_degree"] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (ratio * np.cos(np.deg2rad(alpha)) - 1)))
+                else:
+                    index = trafo_table["step"] == (tap_neutral - 1)
+                    alpha = trafo_table["angle_deg"][index].values[0]
+                    ratio = trafo_table["voltage_ratio"][index].values[0]
+                    row["tap_step_percent"] = 100 * np.sqrt(ratio ** 2 + 1 - 2 * ratio * np.cos(np.deg2rad(alpha)))
+                    row["tap_step_degree"] = np.rad2deg(np.arctan2(ratio * np.sin(np.deg2rad(alpha)), (1 - ratio * np.cos(np.deg2rad(alpha)))))
 
     return pp_net
 
