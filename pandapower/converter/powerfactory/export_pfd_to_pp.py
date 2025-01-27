@@ -1,4 +1,5 @@
 import pandapower as pp
+from pandapower.converter.utils import set_tap_percent_and_degree_from_table
 from .echo_off import echo_off, echo_on
 from .logger_setup import AppHandler, set_PF_level
 from .pf_export_functions import run_load_flow, create_network_dict
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def from_pfd(app, prj_name: str, path_dst=None, pv_as_slack=False, pf_variable_p_loads='plini',
              pf_variable_p_gen='pgini', flag_graphics='GPS', tap_opt='nntap',
+             tap_percent_and_degree_from_table = False,
              export_controller=True, handle_us="Deactivate", is_unbalanced=False, create_sections=True):
     """
 
@@ -57,6 +59,10 @@ def from_pfd(app, prj_name: str, path_dst=None, pv_as_slack=False, pf_variable_p
     # save a flag, whether the PowerFactory load flow failed
     app.SetAttributeModeInternal(0)
     net["pf_converged"] = not pf_load_flow_failed
+
+    if(tap_percent_and_degree_from_table):
+        set_tap_percent_and_degree_from_table(net.trafo, net.trafo_characteristic_table)
+        set_tap_percent_and_degree_from_table(net.trafo3w,net.trafo_characteristic_table)
 
     logger.info(net)
 

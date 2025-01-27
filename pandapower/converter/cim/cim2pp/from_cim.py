@@ -107,6 +107,7 @@ def from_cim(file_list: List[str] = None, encoding: str = None, convert_line_to_
              repair_pp: Union[str, interfaces.PandapowerRepair] = None,
              repair_pp_class: Type[interfaces.PandapowerRepair] = None,
              custom_converter_classes: Dict = None,
+            tap_percent_and_degree_from_table = False,
              cgmes_version: str = '2.4.15', **kwargs) -> \
         pandapower.auxiliary.pandapowerNet:
     # Nur zum Testen, kann wieder gelöscht werden
@@ -152,6 +153,7 @@ def from_cim(file_list: List[str] = None, encoding: str = None, convert_line_to_
     pp_net = from_cim_dict(cim_parser, convert_line_to_switch=convert_line_to_switch,
                            line_r_limit=line_r_limit, line_x_limit=line_x_limit, repair_cim=repair_cim,
                            repair_cim_class=repair_cim_class, repair_pp=repair_pp, repair_pp_class=repair_pp_class,
+                           tap_percent_and_degree_from_table=tap_percent_and_degree_from_table,
                            custom_converter_classes=custom_converter_classes, **kwargs)
     time_end_converting = time.time()
     logger.info("The pandapower net: \n%s" % pp_net)
