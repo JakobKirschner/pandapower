@@ -1,5 +1,9 @@
 import numpy as np
 
+
+
+
+
 def set_tap_percent_and_degree_from_table(trafo, trafo_characteristic_table):
     for index, row in trafo.iterrows():
         if row.tap_dependency_table:
@@ -9,10 +13,34 @@ def set_tap_percent_and_degree_from_table(trafo, trafo_characteristic_table):
             trafo_table = trafo_characteristic_table[trafo_characteristic_table['id_characteristic'] == id_characteristic_table]
             if np.allclose(trafo_table["voltage_ratio"], 1, 1e-6):
                 _update_ideal_tap_changer(trafo, index, tap_max, tap_neutral, trafo_table)
+                _check_ideal_and_update_type(trafo, index, trafo_table)
             elif np.all(trafo_table["angle_deg"] == 0):
                 _update_longitudinal_regulator(trafo, index, tap_max, tap_neutral, trafo_table)
+                _check_ratio_and_update_type(trafo, index, trafo_table)
             else:
                 _update_ratio_tap_changer(trafo, index, tap_max, tap_neutral, trafo_table)
+                _check_ratio_and_update_type(trafo, index, trafo_table)
+
+def _check_ideal_and_update_type(trafo, index, trafo_table):
+    n = trafo_table["step"].to_numpy() - trafo.loc[index, "tap_neutral"]
+    if np.median(trafo_table["angle_deg"] - n * trafo.loc[index, "tap_step_degree"]) < 1e-5: # median bc. if most steps are good, but largest step in table is just off, still count it is ok representation
+        trafo.loc[index, "tap_changer_type"] = "Ideal"
+    else: # failed to write as table
+        trafo.loc[index, "tap_changer_type"] = "Tabular" # TODO Check with Panos
+        trafo.loc[index, "tap_step_degree"] = 0 # revert to a default
+
+def _check_ratio_and_update_type(trafo, index, trafo_table):
+    n = trafo_table["step"].to_numpy() - trafo.loc[index, "tap_neutral"]
+    ratios_complex = 1 + n * 0.01 * trafo.loc[index, "tap_step_percent"] * np.exp(1j * np.deg2rad(trafo.loc[index, "tap_step_degree"]))
+    ratios = np.abs(ratios_complex)
+    angles = np.rad2deg(np.angle(ratios_complex))
+    if np.median(trafo_table["angle_deg"]- angles) < 1e-5 and np.median(trafo_table["voltage_ratio"] -  ratios) < 1e-5:
+        trafo.loc[index, "tap_changer_type"] = "Ratio"
+    else: # failed to write as table
+        trafo.loc[index, "tap_changer_type"] = "Tabular" # TODO Check with Panos
+        trafo.loc[index, "tap_step_degree"] = 0 # revert to a default
+        trafo.loc[index, "tap_step_percent"] = 0  # revert to a default
+
 
 def _update_ratio_tap_changer(trafo, index, tap_max, tap_neutral, trafo_table):
     if tap_max > tap_neutral:
