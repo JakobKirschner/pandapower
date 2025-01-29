@@ -194,7 +194,7 @@ On which side the reference voltage is adapted depends on the :math:`tap\_side` 
 
 In addition to tap_step_percent, a value for tap_step_degree can be defined to model an angle shift for each tap, resulting in a cross
 regulator that affects the magnitude as well as the angle of the transformer ratio. Use tap_changer_type "Ratio",
-or if the angle shift is :math:'\pm 90' degrees, you can use tap_changer_type "Symmetrical" (and tap_step_percent can be left empty).
+or if the angle shift is :math:'\theta = 90' degrees, you can use tap_changer_type "Symmetrical" (and tap_step_degree can be left empty).
 
 .. math::
    :nowrap:
