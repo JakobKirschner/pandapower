@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -34,9 +35,22 @@ def _check_ratio_and_update_type(trafo, index, trafo_table):
     ratios_complex = 1 + n * 0.01 * trafo.loc[index, "tap_step_percent"] * np.exp(1j * np.deg2rad(trafo.loc[index, "tap_step_degree"]))
     ratios = np.abs(ratios_complex)
     angles = np.rad2deg(np.angle(ratios_complex))
-    if np.median(trafo_table["angle_deg"]- angles) < 1e-5 and np.median(trafo_table["voltage_ratio"] -  ratios) < 1e-5:
+    # if np.median(trafo_table["angle_deg"]- angles) < 1e-5 and np.median(trafo_table["voltage_ratio"] -  ratios) < 1e-5:
+    if np.allclose(trafo_table["angle_deg"], angles,  1e-5) and np.allclose(trafo_table["voltage_ratio"] ,  ratios, 1e-5):
         trafo.loc[index, "tap_changer_type"] = "Ratio"
     else: # failed to write as table
+        plt.scatter(trafo_table["step"],trafo_table["voltage_ratio"])
+        plt.show()
+        plt.scatter(trafo_table["step"], trafo_table["vk_percent"])
+        plt.title(trafo.name[index])
+        plt.xlabel("step")
+        plt.ylabel("vk_percent")
+        plt.show()
+        plt.scatter(trafo_table["step"], trafo_table["vkr_percent"])
+        plt.title(trafo.name[index])
+        plt.xlabel("step")
+        plt.ylabel("vkr_percent")
+        plt.show()
         trafo.loc[index, "tap_changer_type"] = "Tabular" # TODO Check with Panos
         trafo.loc[index, "tap_step_degree"] = 0 # revert to a default
         trafo.loc[index, "tap_step_percent"] = 0  # revert to a default
