@@ -1549,7 +1549,7 @@ def test_shunt_with_missing_vn_kv():
 
     pp.runpp(net)
 
-def test_net_for_q_capability_curve():
+def _test_net_for_q_capability_curve():
     net = pp.create_empty_network()
     bus1 = pp.create_bus(net, name="bus1", vn_kv=20., type="b", min_vm_pu=0., max_vm_pu=1.05)
     bus2 = pp.create_bus(net, name="bus2", vn_kv=110., type="b", min_vm_pu=0., max_vm_pu=1.05)
@@ -1574,7 +1574,7 @@ def test_net_for_q_capability_curve():
     return net
 
 def test_q_capability_curve():
-    net = test_net_for_q_capability_curve()
+    net = _test_net_for_q_capability_curve()
     pp.runpp(net)
 
     net.gen.loc[0,"max_q_mvar"] = 50.0
