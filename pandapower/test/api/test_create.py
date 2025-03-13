@@ -1305,7 +1305,7 @@ def test_create_switches_raise_errorexcept():
         create_switches(
             net, buses=[b1, b2, b3], elements=[1, t1, b4], et=["l", "t", "b"], z_ohm=0.0
         )
-    with pytest.raises(UserWarning, match=rf"Line not connected \(line element, bus\): \[\({b3}, {l1}\)\]"):
+    with pytest.raises(UserWarning, match=r"Line not connected \(line element, bus\): \[\(%s, %s\)\]" % (b3, l1)):
         create_switches(
             net,
             buses=[b3, b2, b3],
